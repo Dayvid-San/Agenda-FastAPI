@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Depends, status
 
 # Garante que os dados da aplicação tenham os formatos corretos
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 # ORM (Object-Relational Mapping)
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
@@ -46,19 +46,51 @@ def get_db():
 
 # --- Schemas de Validação (Pydantic) ---
 class ContactBase(BaseModel):
-    name: str
-    phone: str
-    email: Optional[str] = None
+    # min_length=1 impede strings vazias ""
+    name: str = Field(..., min_length=1, max_length=100)
+    phone: str = Field(..., min_length=8, max_length=20)
+    # EmailStr valida o formato sintático do e-mail
+    email: Optional[EmailStr] = None
 
+    @field_validator("name", "phone", mode="before")
+    @classmethod
+    def strip_and_validate_not_empty(cls, value: any) -> any:
+        # Se vier null/None, deixa o Pydantic disparar o erro nativo de tipo
+        if value is None:
+            return value
+
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                raise ValueError("field cannot be empty or contain only whitespaces")
+            return cleaned
+
+        return value
 
 class ContactCreate(ContactBase):
     pass
 
 
 class ContactUpdate(BaseModel):
-    name: Optional[str] = None
-    phone: Optional[str] = None
-    email: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    phone: Optional[str] = Field(None, min_length=8, max_length=20)
+    email: Optional[EmailStr] = None
+
+    @field_validator("name", "phone", mode="before")
+    @classmethod
+    def validate_optional_fields(cls, value: any) -> any:
+        if value is None:
+            # Em atualizações parciais (PATCH/PUT), se quiser permitir anular o campo, trate aqui.
+            # Caso contrário, trate para não permitir null explícito:
+            return value
+
+        if isinstance(value, str):
+            cleaned = value.strip()
+            if not cleaned:
+                raise ValueError("field cannot be empty or contain only whitespaces")
+            return cleaned
+
+        return value
 
 
 class ContactResponse(ContactBase):
