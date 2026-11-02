@@ -80,9 +80,7 @@ class ContactUpdate(BaseModel):
     @classmethod
     def validate_optional_fields(cls, value: any) -> any:
         if value is None:
-            # Em atualizações parciais (PATCH/PUT), se quiser permitir anular o campo, trate aqui.
-            # Caso contrário, trate para não permitir null explícito:
-            return value
+            raise ValueError("field cannot be null")
 
         if isinstance(value, str):
             cleaned = value.strip()
