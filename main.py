@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Depends, status
+
+# Garante que os dados da aplicação tenham os formatos corretos
 from pydantic import BaseModel, EmailStr
 
 # ORM (Object-Relational Mapping)
@@ -18,15 +20,18 @@ Base = declarative_base()
 
 # --- Modelo do Banco (SQLAlchemy) ---
 class ContactModel(Base):
+    # O __tablename__ está indicando que esta classe está vinculada a tabela contacts
+    # Assim, ele puxa os campos das tabelas no banco de dados
     __tablename__ = "contacts"
 
+    # Assim, podemos trabalhar com os bancos aqui assim
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
     phone = Column(String, nullable=False)
     email = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-
+# Esse é o comando que realmente cria as tabelas no banco de dados
 Base.metadata.create_all(bind=engine)
 
 
@@ -62,7 +67,7 @@ class ContactResponse(ContactBase):
 
     class Config:
         from_attributes = True
-
+ 
 
 # --- Aplicação FastAPI ---
 app = FastAPI(title="Agenda API", version="1.0.0")
@@ -72,6 +77,7 @@ app = FastAPI(title="Agenda API", version="1.0.0")
     "/contacts", response_model=ContactResponse, status_code=status.HTTP_201_CREATED
 )
 def create_contact(contact: ContactCreate, db: Session = Depends(get_db)):
+    
     new_contact = ContactModel(**contact.model_dump())
     db.add(new_contact)
     db.commit()
