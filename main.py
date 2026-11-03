@@ -1,9 +1,9 @@
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import List, Optional, Any
 from fastapi import FastAPI, HTTPException, Depends, status
 
 # Garante que os dados da aplicação tenham os formatos corretos
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 # ORM (Object-Relational Mapping)
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
@@ -29,7 +29,7 @@ class ContactModel(Base):
     name = Column(String, nullable=False, index=True)
     phone = Column(String, nullable=False)
     email = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 # Esse é o comando que realmente cria as tabelas no banco de dados
 Base.metadata.create_all(bind=engine)
@@ -54,7 +54,7 @@ class ContactBase(BaseModel):
 
     @field_validator("name", "phone", mode="before")
     @classmethod
-    def strip_and_validate_not_empty(cls, value: any) -> any:
+    def strip_and_validate_not_empty(cls, value: Any) -> Any:
         # Se vier null/None, deixa o Pydantic disparar o erro nativo de tipo
         if value is None:
             return value
@@ -78,9 +78,9 @@ class ContactUpdate(BaseModel):
 
     @field_validator("name", "phone", mode="before")
     @classmethod
-    def validate_optional_fields(cls, value: any) -> any:
+    def validate_optional_fields(cls, value: Any) -> Any:
         if value is None:
-            raise ValueError("field cannot be null")
+            raise ValueError("field cannot be null")  # <- Bloqueia {"name": null} com 422
 
         if isinstance(value, str):
             cleaned = value.strip()
@@ -91,12 +91,16 @@ class ContactUpdate(BaseModel):
         return value
 
 
-class ContactResponse(ContactBase):
+class ContactResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
+    name: str
+    phone: str
+    email: Optional[str] = None  # Aceita qualquer formato já gravado no banco sem quebrar
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+
  
 
 # --- Aplicação FastAPI ---
